@@ -98,10 +98,7 @@ int main(int argc, char **argv)
                 break;
         }
     }
-    
-    printf("\nport %d\nip %s\nrequest %d\nmaxrequests %llu\npause %d\nclients %d\n",
-           data.port, data.ip, data.request, data.maxRequests, data.pause, clients);
-    
+        
     /* Create the socket pair for sending data for collection */
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, comms) == -1)
     {
@@ -178,9 +175,6 @@ void *client(void *information)
     char *buffer = 0;
     char request[NETWORK_BUFFER_SIZE];
     clientData *data = (clientData *)information;
-    
-    printf("\nport %d\nip %s\nrequest %d\nmaxrequests %llu\npause %d\n",
-           data->port, data->ip, data->request, data->maxRequests, data->pause);
     
     /* Allocate memory and other setup */
     if ((buffer = malloc(sizeof(char) * NETWORK_BUFFER_SIZE)) == NULL)

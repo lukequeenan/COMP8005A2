@@ -111,7 +111,7 @@ void server(int port, int comm)
         displayClientData(connections);
         activeClients = clients;
         if (select(maxFileDescriptor + 1, &activeClients,
-                    NULL, NULL, NULL) == -1)
+                   NULL, NULL, NULL) == -1)
         {
             systemFatal("Error with pselect");
         }
@@ -124,10 +124,6 @@ void server(int port, int comm)
             {
                 FD_SET(client, &clients);
                 connections++;
-                if (client > maxFileDescriptor)
-                {
-                    maxFileDescriptor = client;
-                }
             }
         }
         
