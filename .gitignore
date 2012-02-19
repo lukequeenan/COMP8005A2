@@ -2,3 +2,5 @@
 .DS_Store
 /doc
 *.txt
+*.out
+*.o
