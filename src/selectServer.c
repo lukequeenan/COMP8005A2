@@ -141,6 +141,7 @@ void server(int port, int comm)
                     if (processConnection(index, comm) == -1)
                     {
                         FD_CLR(index, &clients);
+                        close(index);
                         connections--;
                     }
                 }
@@ -154,19 +155,23 @@ void server(int port, int comm)
 int processConnection(int socket, int comm)
 {
     int bytesToWrite = 0;
-    int read = 0;
+    int count = 0;
     char line[NETWORK_BUFFER_SIZE];
     char result[NETWORK_BUFFER_SIZE];
     
     /* Read the request from the client */
-    if ((read = readLine(&socket, line, NETWORK_BUFFER_SIZE)) <= 0)
+    if (readLine(&socket, line, NETWORK_BUFFER_SIZE) <= 0)
     {
-        close(socket);
         return -1;
     }
     
     /* Get the number of bytes to reply with */
     bytesToWrite = atol(line);
+    
+    for (count = 0; count < bytesToWrite; count++)
+    {
+        result[count] = (char)count;
+    }
     
     /* Ensure that the bytes requested are within our buffers */
     if ((bytesToWrite <= 0) || (bytesToWrite > NETWORK_BUFFER_SIZE))
