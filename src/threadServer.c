@@ -143,7 +143,7 @@ void *processConnection(void *data)
     int comm = (int) (long) data;
     int socket = (long) data >> sizeof(int);
     int bytesToWrite = 0;
-    int read = 0;
+    int count = 0;
     char line[NETWORK_BUFFER_SIZE];
     char result[NETWORK_BUFFER_SIZE];
     
@@ -151,7 +151,7 @@ void *processConnection(void *data)
     while (1)
     {
         /* Read the request from the client */
-        if ((read = readLine(&socket, line, NETWORK_BUFFER_SIZE)) <= 0)
+        if (readLine(&socket, line, NETWORK_BUFFER_SIZE) <= 0)
         {
             close(socket);
             pthread_exit(NULL);
