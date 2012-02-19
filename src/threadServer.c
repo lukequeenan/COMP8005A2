@@ -143,7 +143,6 @@ void *processConnection(void *data)
     int comm = (int) (long) data;
     int socket = (long) data >> sizeof(int);
     int bytesToWrite = 0;
-    int count = 0;
     char line[NETWORK_BUFFER_SIZE];
     char result[NETWORK_BUFFER_SIZE];
     
@@ -159,11 +158,6 @@ void *processConnection(void *data)
         
         /* Get the number of bytes to reply with */
         bytesToWrite = atol(line);
-        
-        for (count = 0; count < bytesToWrite; count++)
-        {
-            result[count] = (char)count;
-        }
         
         /* Ensure that the bytes requested are within our buffers */
         if ((bytesToWrite <= 0) || (bytesToWrite > NETWORK_BUFFER_SIZE))
