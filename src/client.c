@@ -68,8 +68,8 @@ int main(int argc, char **argv)
     /* Create variables and assign default data */
     int option = 0;
     int comms[2];
-    int clients = 10;
-    clientData data = {"192.168.0.198", 819200, DEFAULT_PORT, 0, 10, 0};
+    int clients = 50;
+    clientData data = {"192.168.0.189", 512, DEFAULT_PORT, 0, 5, 0};
     
     /* Get all the arguments */
     while ((option = getopt(argc, argv, "p:i:r:m:w:n:")) != -1)
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
                 break;
         }
     }
-        
+    
     /* Create the socket pair for sending data for collection */
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, comms) == -1)
     {
@@ -210,7 +210,7 @@ void *client(void *information)
         
         
         /* Send data */
-        if (sendData(&socket, request, data->request) == -1)
+        if (sendData(&socket, request, strlen(request)) == -1)
         {
             systemFatal("Unable to send data");
         }

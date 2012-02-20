@@ -308,7 +308,7 @@ int readLine(int *socket, char *buffer, int maxBytesToRead)
     int count = 0;
     int bytesRead = 0;
     
-    for (count = 1; count < maxBytesToRead; count++)
+    for (count = 0; count < maxBytesToRead; count++)
     {
         if ((bytesRead = recv(*socket, &buffer[count], 1, 0)) == 1)
         {
@@ -321,7 +321,7 @@ int readLine(int *socket, char *buffer, int maxBytesToRead)
         else if (bytesRead == 0)
         {
             /* EOF, no data read */
-            if (count == 1)
+            if (count == 0)
             {
                 return 0;
             }
