@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     int option = 0;
     int comms[2];
     int clients = 50;
-    clientData data = {"192.168.0.189", 512, DEFAULT_PORT, 0, 5, 10000};
+    clientData data = {"192.168.0.189", 512, DEFAULT_PORT, 0, 0, 100};
     
     /* Get all the arguments */
     while ((option = getopt(argc, argv, "p:i:r:m:w:n:")) != -1)
@@ -252,9 +252,15 @@ void *client(void *information)
         }
     }
     
+    /* Clean up */
+    if (closeSocket(&socket) == -1)
+    {
+        systemFatal("Unable to close socket");
+    }
+    
     /* Create and format data for output */
-    snprintf(request, sizeof(request), "Requests: %llu, Request Time: %llu, Data Received: %llu",
-             count, requestTime, dataReceived);
+    snprintf(request, sizeof(request), "Requests: %llu, Request Time: %llu, "
+             "Data Received: %llu\n", count, requestTime, dataReceived);
     
     /* Send data to comms process */
     if (sendData(&data->comm, request, strlen(request)) == -1)
@@ -262,11 +268,6 @@ void *client(void *information)
         systemFatal("Unable to send result data");
     }
     
-    /* Clean up *//*
-                   if (closeSocket(&socket) == -1)
-                   {
-                   systemFatal("Unable to close socket");
-                   }*/
     free(buffer);
     
     pthread_exit(NULL);
@@ -292,7 +293,7 @@ void dataCollector(int socket, int clients)
     
     while (1)
     {
-        if (readData(&socket, buffer, LOCAL_BUFFER_SIZE) == -1)
+        if (readLine(&socket, buffer, LOCAL_BUFFER_SIZE) == -1)
         {
             systemFatal("Error reading client data");
         }
@@ -310,6 +311,7 @@ void dataCollector(int socket, int clients)
     
     close(fd);
     close(socket);
+    exit(0);
 }
 
 void stopClients()
