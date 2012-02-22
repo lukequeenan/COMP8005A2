@@ -146,6 +146,9 @@ void *processConnection(void *data)
     char line[NETWORK_BUFFER_SIZE];
     char result[NETWORK_BUFFER_SIZE];
     
+    /* Ready the memory for sending to the client */
+    memset(result, 'L', NETWORK_BUFFER_SIZE);
+    
     /* Service the client while it is connected */
     while (1)
     {
