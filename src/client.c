@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -58,11 +59,13 @@ typedef struct
 
 /* Function Protypes */
 void *client(void* information);
-void dataCollector(int socket);
+void dataCollector(int socket, int clients);
 void createClients(clientData data, int clients);
 void stopClients();
 void stopCollecting();
 static void systemFatal(const char* message);
+
+
 
 /* Main entry point */
 int main(int argc, char **argv)
@@ -71,7 +74,7 @@ int main(int argc, char **argv)
     int option = 0;
     int comms[2];
     int clients = 50;
-    clientData data = {"192.168.0.189", 512, DEFAULT_PORT, 0, 5, 0};
+    clientData data = {"192.168.0.189", 512, DEFAULT_PORT, 0, 5, 10000};
     
     /* Get all the arguments */
     while ((option = getopt(argc, argv, "p:i:r:m:w:n:")) != -1)
@@ -110,7 +113,7 @@ int main(int argc, char **argv)
     /* Create the data processing process and send it the other socket */
     if (!fork())
     {
-        dataCollector(comms[1]);
+        dataCollector(comms[1], clients);
         return 0;
     }
     
@@ -166,16 +169,21 @@ void createClients(clientData data, int clients)
     
     pthread_attr_destroy(&attr);
     
-    /* Wait for a signal from the data processing thread??? */
+    /* Wait for a signal from the data processing process */
     wait(&count);
 }
 
 void *client(void *information)
 {
     int socket = 0;
+    int read = 0;
     unsigned long long count = 0;
+    unsigned long long dataReceived = 0;
+    unsigned long long requestTime = 0;
     char *buffer = 0;
     char request[NETWORK_BUFFER_SIZE];
+    struct timeval startTime;
+    struct timeval endTime;
     clientData *data = (clientData *)information;
     
     /* Allocate memory and other setup */
@@ -209,7 +217,7 @@ void *client(void *information)
     while (1)
     {
         /* Get time before sending data */
-        
+        gettimeofday(&startTime, NULL);
         
         /* Send data */
         if (sendData(&socket, request, strlen(request)) == -1)
@@ -218,24 +226,23 @@ void *client(void *information)
         }
         
         /* Receive data from the server */
-        if (readData(&socket, buffer, data->request) == -1)
+        if ((read = readData(&socket, buffer, data->request)) == -1)
         {
             systemFatal("Unable to read data");
         }
         
         /* Get time after receiving response */
+        gettimeofday(&endTime, NULL);
         
-        
-        /* Send data to the collection process */
-        
+        /* Save data */
+        dataReceived += read;
+        requestTime += (endTime.tv_sec * 1000000 + endTime.tv_usec) -
+        (startTime.tv_sec * 1000000 + startTime.tv_usec);
         
         /* Increment count and check to see if we are done */
-        if (data->maxRequests != 0)
+        if (++count >= data->maxRequests)
         {
-            if (++count >= data->maxRequests)
-            {
-                break;
-            }
+            break;
         }
         
         /* Wait the specified amount of time between requests */
@@ -245,27 +252,31 @@ void *client(void *information)
         }
     }
     
-    /* Clean up */
-    if (closeSocket(&socket) == -1)
-    {
-        systemFatal("Unable to close socket");
-    }
-    if (closeSocket(&data->comm))
-    {
-        systemFatal("Unable to close socket");
-    }
-    free(buffer);
+    /* Create and format data for output */
+    snprintf(request, sizeof(request), "Requests: %llu, Request Time: %llu, Data Received: %llu",
+             count, requestTime, dataReceived);
     
+    /* Send data to comms process */
+    if (sendData(&data->comm, request, strlen(request)) == -1)
+    {
+        systemFatal("Unable to send result data");
+    }
+    
+    /* Clean up *//*
+                   if (closeSocket(&socket) == -1)
+                   {
+                   systemFatal("Unable to close socket");
+                   }*/
+    free(buffer);
     
     pthread_exit(NULL);
 }
 
-void dataCollector(int socket)
+void dataCollector(int socket, int clients)
 {
-    register char *buffer;
-    register int fd = 0;
-    unsigned long long requests = 0;
-    unsigned long long dataSent = 0;
+    char *buffer;
+    int fd = 0;
+    int count = 0;
     
     signal(SIGINT, stopCollecting);
     
@@ -289,6 +300,11 @@ void dataCollector(int socket)
         if (write(fd, buffer, LOCAL_BUFFER_SIZE) == -1)
         {
             systemFatal("Unable to write client data to file");
+        }
+        
+        if (++count >= clients)
+        {
+            break;
         }
     }
     
