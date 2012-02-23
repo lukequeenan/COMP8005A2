@@ -89,6 +89,7 @@ int main(int argc, char **argv)
 
 void server(int port, int comm)
 {
+    register int ready = 0;
     int listenSocket = 0;
     int client = 0;
     int maxFileDescriptor = 0;
@@ -110,8 +111,8 @@ void server(int port, int comm)
     {
         displayClientData(connections);
         activeClients = clients;
-        if (select(maxFileDescriptor + 1, &activeClients,
-                    NULL, NULL, NULL) == -1)
+        if ((ready = select(maxFileDescriptor + 1, &activeClients,
+                    NULL, NULL, NULL)) == -1)
         {
             systemFatal("Error with pselect");
         }
@@ -129,6 +130,10 @@ void server(int port, int comm)
                     maxFileDescriptor = client;
                 }
             }
+            if (--ready <= 0)
+            {
+                continue;
+            }
         }
         
         /* Now process any requests made by the other connected clients */
@@ -144,6 +149,10 @@ void server(int port, int comm)
                         close(index);
                         connections--;
                     }
+                }
+                if (--ready <= 0)
+                {
+                    break;
                 }
             }
         }
