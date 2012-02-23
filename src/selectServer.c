@@ -32,6 +32,7 @@
 /* System includes */
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/resource.h>
 #include <unistd.h>
@@ -189,13 +190,13 @@ int processConnection(int socket, int comm)
     {
         systemFatal("Client requested too large a file");
     }
-    
+
     /* Send the data back to the client */
     if (sendData(&socket, result, bytesToWrite) == -1)
     {
         systemFatal("Send fail");
     }
-    
+
     /* Send the communication time to the data collection process */
     
     
