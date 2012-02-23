@@ -184,11 +184,6 @@ int processConnection(int socket, int comm)
     /* Get the number of bytes to reply with */
     bytesToWrite = atol(line);
     
-    for (count = 0; count < bytesToWrite; count++)
-    {
-        result[count] = (char)count;
-    }
-    
     /* Ensure that the bytes requested are within our buffers */
     if ((bytesToWrite <= 0) || (bytesToWrite > NETWORK_BUFFER_SIZE))
     {
