@@ -307,13 +307,15 @@ int readLine(int *socket, char *buffer, int maxBytesToRead)
 {
     int count = 0;
     int bytesRead = 0;
+    char c = 0;
     
-    for (count = 0; count < maxBytesToRead; count++)
+    for (count = 1; count < maxBytesToRead; count++)
     {
-        if ((bytesRead = recv(*socket, &buffer[count], 1, MSG_WAITALL)) == 1)
+        if ((bytesRead = read(*socket, &c, 1)) == 1)
         {
+            *buffer++ = c;
             /* Get out of the read if we find the new line */
-            if (buffer[count] == '\n')
+            if (c == '\n')
             {
                 break;
             }
@@ -321,7 +323,7 @@ int readLine(int *socket, char *buffer, int maxBytesToRead)
         else if (bytesRead == 0)
         {
             /* EOF, no data read */
-            if (count == 0)
+            if (count == 1)
             {
                 return 0;
             }
