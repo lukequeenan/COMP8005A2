@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-W -Wall
+CFLAGS=-W -Wall -g
 TFLAG=-lpthread -pthread
 CLIENT=client.out
 THREAD_SERVER=threadServer.out
