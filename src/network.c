@@ -310,7 +310,7 @@ int readLine(int *socket, char *buffer, int maxBytesToRead)
     
     for (count = 0; count < maxBytesToRead; count++)
     {
-        if ((bytesRead = recv(*socket, &buffer[count], 1, 0)) == 1)
+        if ((bytesRead = recv(*socket, &buffer[count], 1, MSG_WAITALL)) == 1)
         {
             /* Get out of the read if we find the new line */
             if (buffer[count] == '\n')

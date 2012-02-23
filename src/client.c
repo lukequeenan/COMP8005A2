@@ -73,7 +73,7 @@ int main(int argc, char **argv)
     /* Create variables and assign default data */
     int option = 0;
     int comms[2];
-    int clients = 50;
+    int clients = 10;
     clientData data = {"192.168.0.189", 512, DEFAULT_PORT, 0, 0, 100};
     
     /* Get all the arguments */
