@@ -138,7 +138,7 @@ void server(int port, int comm)
             {
                 if (index != listenSocket)
                 {
-                    if (processConnection(index, comm) == -1)
+                    if (processConnection(index, comm) == 0)
                     {
                         FD_CLR(index, &clients);
                         close(index);
@@ -160,9 +160,13 @@ int processConnection(int socket, int comm)
     char result[NETWORK_BUFFER_SIZE];
     
     /* Read the request from the client */
-    if (readLine(&socket, line, NETWORK_BUFFER_SIZE) <= 0)
+    if ((count = readLine(&socket, line, NETWORK_BUFFER_SIZE)) == -1)
     {
-        return -1;
+        systemFatal("Unable to read from client");
+    }
+    else if (count == 0)
+    {
+        return 0;
     }
     
     /* Get the number of bytes to reply with */
@@ -188,7 +192,7 @@ int processConnection(int socket, int comm)
     /* Send the communication time to the data collection process */
     
     
-    return 0;
+    return 1;
 }
 
 /*
@@ -241,12 +245,12 @@ void initializeServer(int *listenSocket, int *port)
 }
 
 void displayClientData(unsigned long long clients)
-{
+{/*
     if (system("clear") == -1)
     {
         systemFatal("Clear screen failed");
     }
-    printf("\n\nConnected clients: %llu\n", clients);
+    printf("\n\nConnected clients: %llu\n", clients);*/
 }
 
 /*
