@@ -168,6 +168,9 @@ int processConnection(int socket, int comm)
     char line[NETWORK_BUFFER_SIZE];
     char result[NETWORK_BUFFER_SIZE];
     
+    /* Ready the memory for sending to the client */
+    memset(result, 'L', NETWORK_BUFFER_SIZE);
+    
     /* Read the request from the client */
     if ((count = readLine(&socket, line, NETWORK_BUFFER_SIZE)) == -1)
     {
