@@ -108,9 +108,10 @@ void server(int port, int comm)
     FD_SET(listenSocket, &clients);
     maxFileDescriptor = listenSocket;
     
+    displayClientData(connections);
+    
     while (1)
     {
-        displayClientData(connections);
         activeClients = clients;
         if ((ready = select(maxFileDescriptor + 1, &activeClients,
                     NULL, NULL, NULL)) == -1)
@@ -126,6 +127,7 @@ void server(int port, int comm)
             {
                 FD_SET(client, &clients);
                 connections++;
+                displayClientData(connections);
                 if (client > maxFileDescriptor)
                 {
                     maxFileDescriptor = client;
@@ -149,6 +151,7 @@ void server(int port, int comm)
                         FD_CLR(index, &clients);
                         close(index);
                         connections--;
+                        displayClientData(connections);
                     }
                 }
                 if (--ready <= 0)
@@ -165,19 +168,15 @@ void server(int port, int comm)
 int processConnection(int socket, int comm)
 {
     int bytesToWrite = 0;
-    int count = 0;
     char line[NETWORK_BUFFER_SIZE];
     char result[NETWORK_BUFFER_SIZE];
     
     /* Ready the memory for sending to the client */
     memset(result, 'L', NETWORK_BUFFER_SIZE);
+    //memset(line, '\0', NETWORK_BUFFER_SIZE);
     
     /* Read the request from the client */
-    if ((count = readLine(&socket, line, NETWORK_BUFFER_SIZE)) == -1)
-    {
-        systemFatal("Unable to read from client");
-    }
-    else if (count == 0)
+    if (readLine(&socket, line, NETWORK_BUFFER_SIZE) <= 0)
     {
         return 0;
     }
@@ -253,12 +252,12 @@ void initializeServer(int *listenSocket, int *port)
 }
 
 void displayClientData(unsigned long long clients)
-{/*
+{
     if (system("clear") == -1)
     {
         systemFatal("Clear screen failed");
     }
-    printf("\n\nConnected clients: %llu\n", clients);*/
+    printf("\n\nConnected clients: %llu\n", clients);
 }
 
 /*
