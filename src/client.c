@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     int option = 0;
     int comms[2];
     int clients = 10;
-    clientData data = {"192.168.0.189", 512, DEFAULT_PORT, 0, 0, 100};
+    clientData data = {"192.168.0.175", 1024, DEFAULT_PORT, 0, 0, 500};
     
     /* Get all the arguments */
     while ((option = getopt(argc, argv, "p:i:r:m:w:n:")) != -1)
@@ -224,7 +224,7 @@ void *client(void *information)
         {
             systemFatal("Unable to send data");
         }
-        
+
         /* Receive data from the server */
         if ((read = readData(&socket, buffer, data->request)) == -1)
         {
@@ -278,6 +278,7 @@ void dataCollector(int socket, int clients)
     char *buffer;
     int fd = 0;
     int count = 0;
+    int clientCount = 0;
     
     signal(SIGINT, stopCollecting);
     
@@ -293,17 +294,17 @@ void dataCollector(int socket, int clients)
     
     while (1)
     {
-        if (readLine(&socket, buffer, LOCAL_BUFFER_SIZE) == -1)
+        if ((count = readLine(&socket, buffer, LOCAL_BUFFER_SIZE)) == -1)
         {
             systemFatal("Error reading client data");
         }
         
-        if (write(fd, buffer, LOCAL_BUFFER_SIZE) == -1)
+        if (write(fd, buffer, ++count) == -1)
         {
             systemFatal("Unable to write client data to file");
         }
         
-        if (++count >= clients)
+        if (++clientCount >= clients)
         {
             break;
         }
