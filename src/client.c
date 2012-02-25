@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     int option = 0;
     int comms[2];
     int clients = 10;
-    clientData data = {"192.168.0.175", 1024, DEFAULT_PORT, 0, 0, 500};
+    clientData data = {"192.168.0.175", 1024, DEFAULT_PORT, 0, 0, 100};
     
     /* Get all the arguments */
     while ((option = getopt(argc, argv, "p:i:r:m:w:n:")) != -1)
@@ -220,13 +220,13 @@ void *client(void *information)
         gettimeofday(&startTime, NULL);
         
         /* Send data */
-        if (sendData(&socket, request, strlen(request)) == -1)
+        if (sendData(&socket, request, strlen(request)) != (int)strlen(request))
         {
             systemFatal("Unable to send data");
         }
 
         /* Receive data from the server */
-        if ((read = readData(&socket, buffer, data->request)) == -1)
+        if ((read = readData(&socket, buffer, data->request)) != data->request)
         {
             systemFatal("Unable to read data");
         }
