@@ -53,19 +53,18 @@ typedef struct
     int request;
     int port;
     int comm;
+    int clients;
     unsigned int pause;
     unsigned long long maxRequests;
-} clientData;
+} threadData;
 
 /* Function Protypes */
 void *client(void* information);
 void dataCollector(int socket, int clients);
-void createClients(clientData data, int clients);
+void createClients(threadData data, int threads);
 void stopClients();
 void stopCollecting();
 static void systemFatal(const char* message);
-
-
 
 /* Main entry point */
 int main(int argc, char **argv)
@@ -73,11 +72,11 @@ int main(int argc, char **argv)
     /* Create variables and assign default data */
     int option = 0;
     int comms[2];
-    int clients = 10;
-    clientData data = {"192.168.0.175", 1024, DEFAULT_PORT, 0, 0, 100};
+    int threads = 8;
+    threadData data = {"192.168.0.175", 1024, DEFAULT_PORT, 0, 10, 0, 100};
     
     /* Get all the arguments */
-    while ((option = getopt(argc, argv, "p:i:r:m:w:n:")) != -1)
+    while ((option = getopt(argc, argv, "p:i:r:m:w:n:t:")) != -1)
     {
         switch (option) {
             case 'p':
@@ -96,7 +95,10 @@ int main(int argc, char **argv)
                 data.pause = atoi(optarg);
                 break;
             case 'n':
-                clients = atoi(optarg);
+                data.clients = atoi(optarg);
+                break;
+            case 't':
+                threads = atoi(optarg);
                 break;
             default:
                 fprintf(stderr, "Usage: %s NEED TO DO USAGE\n", argv[0]);
@@ -113,7 +115,7 @@ int main(int argc, char **argv)
     /* Create the data processing process and send it the other socket */
     if (!fork())
     {
-        dataCollector(comms[1], clients);
+        dataCollector(comms[1], threads);
         return 0;
     }
     
@@ -124,16 +126,16 @@ int main(int argc, char **argv)
     data.comm = comms[0];
     
     /* Create the clients */
-    createClients(data, clients);
+    createClients(data, threads);
     
     return 0;
     
 }
 
-void createClients(clientData data, int clients)
+void createClients(threadData clientData, int threads)
 {
     int count = 0;
-    clientData threadData[clients];
+    threadData data[threads];
     pthread_t thread = 0;
     pthread_attr_t attr;
     
@@ -154,14 +156,14 @@ void createClients(clientData data, int clients)
         systemFatal("Unable to set thread to system scope");
     }
     
-    for (count = 0; count < clients; count++)
+    for (count = 0; count < threads; count++)
     {
-        memcpy(&threadData[count], &data, sizeof(clientData));
+        memcpy(&data[count], &clientData, sizeof(threadData));
     }
     
-    for (count = 0; count < clients; count++)
+    for (count = 0; count < threads; count++)
     {
-        if (pthread_create(&thread, &attr, client, (void *) &threadData[count]) != 0)
+        if (pthread_create(&thread, &attr, client, (void *) &data[count]) != 0)
         {
             systemFatal("Unable to make thread");
         }
@@ -175,8 +177,10 @@ void createClients(clientData data, int clients)
 
 void *client(void *information)
 {
-    int socket = 0;
     int read = 0;
+    int result = 0;
+    int *sockets = 0;
+    register int index = 0;
     unsigned long long count = 0;
     unsigned long long dataReceived = 0;
     unsigned long long requestTime = 0;
@@ -184,59 +188,73 @@ void *client(void *information)
     char request[NETWORK_BUFFER_SIZE];
     struct timeval startTime;
     struct timeval endTime;
-    clientData *data = (clientData *)information;
+    threadData *data = (threadData *)information;
     
     /* Allocate memory and other setup */
     if ((buffer = malloc(sizeof(char) * NETWORK_BUFFER_SIZE)) == NULL)
     {
         systemFatal("Could not allocate buffer memory");
     }
+    if ((sockets = malloc(sizeof(int) * data->clients)) == NULL)
+    {
+        systemFatal("Could not allocate socket memory");
+    }
     
     /* Convert the request size to a new line terminated string */
     snprintf(request, sizeof(request), "%d\n", data->request);
     
-    /* Create the socket */
-    if ((socket = tcpSocket()) == -1)
+    for (index = 0; index < data->clients; index++)
     {
-        systemFatal("Could not create socket");
-    }
-    
-    /* Set the socket to reuse for improper shutdowns */
-    if (setReuse(&socket) == -1)
-    {
-        systemFatal("Could not set reuse");
+        /* Create the socket */
+        if ((sockets[index] = tcpSocket()) == -1)
+        {
+            systemFatal("Could not create socket");
+        }
+        
+        /* Set the socket to reuse for improper shutdowns */
+        if (setReuse(&sockets[index]) == -1)
+        {
+            systemFatal("Could not set reuse");
+        }
+        
+        /* Connect to the server */
+        result = connectToServer(&data->port, &sockets[index], data->ip);
     }
     
     /* Connect to the server */
-    if (connectToServer(&data->port, &socket, data->ip) != -1)
+    if (result != -1)
     {
         /* Enter a loop and communicate with the server */
         while (1)
         {
             count++;
-            /* Get time before sending data */
-            gettimeofday(&startTime, NULL);
             
-            /* Send data */
-            if (sendData(&socket, request, strlen(request)) == -1)
+            for (index = 0; index < data->clients; index++)
             {
-                break;
+                /* Get time before sending data */
+                gettimeofday(&startTime, NULL);
+                
+                /* Send data */
+                if (sendData(&sockets[index], request, strlen(request)) == -1)
+                {
+                    continue;
+                }
+
+                /* Receive data from the server */
+                if ((read = readData(&sockets[index], buffer, data->request)) == -1)
+                {
+                    continue;
+                }
+                
+                /* Get time after receiving response */
+                gettimeofday(&endTime, NULL);
+                
+                /* Save data */
+                dataReceived += read;
+                requestTime += (endTime.tv_sec * 1000000 + endTime.tv_usec) -
+                               (startTime.tv_sec * 1000000 + startTime.tv_usec);
             }
 
-            /* Receive data from the server */
-            if ((read = readData(&socket, buffer, data->request)) == -1)
-            {
-                break;
-            }
-            
-            /* Get time after receiving response */
-            gettimeofday(&endTime, NULL);
-            
-            /* Save data */
-            dataReceived += read;
-            requestTime += (endTime.tv_sec * 1000000 + endTime.tv_usec) -
-            (startTime.tv_sec * 1000000 + startTime.tv_usec);
-            
             /* Increment count and check to see if we are done */
             if (count >= data->maxRequests)
             {
@@ -250,10 +268,14 @@ void *client(void *information)
             }
         }
     }
+    
     /* Clean up */
-    if (closeSocket(&socket) == -1)
+    for (index = 0; index < data->clients; index++)
     {
-        systemFatal("Unable to close socket");
+        if (closeSocket(&sockets[index]) == -1)
+        {
+            systemFatal("Unable to close socket");
+        }
     }
     
     /* Create and format data for output */
