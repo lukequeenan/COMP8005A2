@@ -32,12 +32,16 @@
 /* System includes */
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/resource.h>
 #include <unistd.h>
 
 /* User includes */
 #include "network.h"
+
+#define MAX_EVENTS 1024
 
 int main(int argc, char **argv);
 void server(int port, int comm);
@@ -89,76 +93,95 @@ int main(int argc, char **argv)
 
 void server(int port, int comm)
 {
+    register int epoll = 0;
+    register int ready = 0;
+    register int index = 0;
     int listenSocket = 0;
     int client = 0;
-    int maxFileDescriptor = 0;
-    int index = 0;
-    fd_set clients;
-    fd_set activeClients;
+    
+    struct epoll_event event;
+    struct epoll_event events[MAX_EVENTS];
     unsigned long long connections = 0;
     
     /* Initialize the server */
     initializeServer(&listenSocket, &port);
     
-    /* Set up select variables */
-    FD_ZERO(&clients);
-    FD_ZERO(&activeClients);
-    FD_SET(listenSocket, &clients);
-    maxFileDescriptor = listenSocket;
+    /* Set up epoll variables */
+    if ((epoll = epoll_create1(0)) == -1)
+    {
+        systemFatal("Unable to create epoll object");
+    }
+    
+    event.events = EPOLLIN;
+    event.data.fd = listenSocket;
+    
+    if (epoll_ctl(epoll, EPOLL_CTL_ADD, listenSocket, &event) == -1)
+    {
+        systemFatal("Unable to add listen socket to epoll");
+    }
+    
+    displayClientData(connections);
     
     while (1)
     {
-        displayClientData(connections);
-        activeClients = clients;
-        if (select(maxFileDescriptor + 1, &activeClients,
-                   NULL, NULL, NULL) == -1)
+        /* Wait for epoll to return with the maximum events specified */
+        ready = epoll_wait(epoll, events, MAX_EVENTS, -1);
+        if (ready == -1)
         {
-            systemFatal("Error with pselect");
+            systemFatal("Epoll wait error");
         }
         
-        /* First check for a new client connection */
-        if (FD_ISSET(listenSocket, &activeClients))
+        /* Iterate through the returned sockets and deal with them */
+        for (index = 0; index < ready; index++)
         {
-            /* Accept the new connection */
-            if ((client = acceptConnection(&listenSocket)) != -1)
+            if (events[index].data.fd == listenSocket)
             {
-                FD_SET(client, &clients);
-                connections++;
-            }
-        }
-        
-        /* Now process any requests made by the other connected clients */
-        for (index = 0; index <= maxFileDescriptor; index++)
-        {
-            if (FD_ISSET(index, &activeClients))
-            {
-                if (index != listenSocket)
-                {
-                    if (processConnection(index, comm) == -1)
+                /* Accept the new connections */
+                while ((client = acceptConnection(&listenSocket)) != -1)
+                {/*
+                    if (makeSocketNonBlocking(&client) == -1)
                     {
-                        FD_CLR(index, &clients);
-                        connections--;
+                        systemFatal("Cannot make client socket non-blocking");
+                    }*/
+                    event.events = EPOLLIN | EPOLLET;
+                    event.data.fd = client;
+                    if (epoll_ctl(epoll, EPOLL_CTL_ADD, client, &event) == -1)
+                    {
+                        systemFatal("Cannot add client socket to epoll");
                     }
+                    connections++;
+                    displayClientData(connections);
+                }
+            }
+            else
+            {
+                if (processConnection(events[index].data.fd, comm) == 0)
+                {
+                    close(events[index].data.fd);
+                    connections--;
+                    displayClientData(connections);
                 }
             }
         }
     }
     
     close(listenSocket);
+    close(epoll);
 }
 
 int processConnection(int socket, int comm)
 {
     int bytesToWrite = 0;
-    int read = 0;
     char line[NETWORK_BUFFER_SIZE];
     char result[NETWORK_BUFFER_SIZE];
     
+    /* Ready the memory for sending to the client */
+    memset(result, 'L', NETWORK_BUFFER_SIZE);
+    
     /* Read the request from the client */
-    if ((read = readLine(&socket, line, NETWORK_BUFFER_SIZE)) <= 0)
+    if (readLine(&socket, line, NETWORK_BUFFER_SIZE) <= 0)
     {
-        close(socket);
-        return -1;
+        return 0;
     }
     
     /* Get the number of bytes to reply with */
@@ -169,17 +192,17 @@ int processConnection(int socket, int comm)
     {
         systemFatal("Client requested too large a file");
     }
-    
+
     /* Send the data back to the client */
     if (sendData(&socket, result, bytesToWrite) == -1)
     {
         systemFatal("Send fail");
     }
-    
+
     /* Send the communication time to the data collection process */
     
     
-    return 0;
+    return 1;
 }
 
 /*
@@ -222,6 +245,11 @@ void initializeServer(int *listenSocket, int *port)
     if (bindAddress(port, listenSocket) == -1)
     {
         systemFatal("Cannot Bind Address To Socket");
+    }
+    
+    if (makeSocketNonBlocking(listenSocket) == -1)
+    {
+        systemFatal("Cannot Make Socket Non-Blocking");
     }
     
     // Set the socket to listen for connections
