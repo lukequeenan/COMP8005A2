@@ -257,17 +257,21 @@ int acceptConnectionIpPort(int *listenSocket, char *ip, unsigned short *port)
 int readData(int *socket, char *buffer, int bytesToRead)
 {
     int read = 0;
+    int readTotal = 0;
     int bytesLeft = bytesToRead;
     
     while (read < bytesToRead)
     {
-        read += recv(*socket, buffer + read, bytesLeft, 0);
-        bytesLeft = bytesToRead - read;
+        read = recv(*socket, buffer + readTotal, bytesLeft, MSG_WAITALL);
+        if (read == -1)
+        {
+            return -1;
+        }
+        readTotal += read;
+        bytesLeft = bytesToRead - readTotal;
     }
     
     return read;
-    
-    //return recv(*socket, buffer, bytesToRead, MSG_WAITALL);
 }
 
 /*
@@ -292,16 +296,21 @@ int readData(int *socket, char *buffer, int bytesToRead)
 int sendData(int *socket, const char *buffer, int bytesToSend)
 {
     int sent = 0;
+    int sentTotal = 0;
     int bytesLeft = bytesToSend;
     
     while (sent < bytesToSend)
     {
-        sent += send(*socket, buffer + sent, bytesLeft, 0);
-        bytesLeft = bytesToSend - sent;
+        sent = send(*socket, buffer + sentTotal, bytesLeft, 0);
+        if (sent == -1)
+        {
+            return -1;
+        }
+        sentTotal += sent;
+        bytesLeft = bytesToSend - sentTotal;
     }
     
     return sent;
-    //return send(*socket, buffer, bytesToSend, 0);
 }
 
 /*

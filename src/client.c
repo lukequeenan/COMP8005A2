@@ -208,50 +208,47 @@ void *client(void *information)
     }
     
     /* Connect to the server */
-    if (connectToServer(&data->port, &socket, data->ip) == -1)
+    if (connectToServer(&data->port, &socket, data->ip) != -1)
     {
-        systemFatal("Unable to connect to server");
-    }
-    
-    /* Enter a loop and communicate with the server */
-    while (1)
-    {
-        /* Get time before sending data */
-        gettimeofday(&startTime, NULL);
-        
-        /* Send data */
-        if (sendData(&socket, request, strlen(request)) != (int)strlen(request))
+        /* Enter a loop and communicate with the server */
+        while (1)
         {
-            systemFatal("Unable to send data");
-        }
+            /* Get time before sending data */
+            gettimeofday(&startTime, NULL);
+            
+            /* Send data */
+            if (sendData(&socket, request, strlen(request)) == -1)
+            {
+                break;
+            }
 
-        /* Receive data from the server */
-        if ((read = readData(&socket, buffer, data->request)) != data->request)
-        {
-            systemFatal("Unable to read data");
-        }
-        
-        /* Get time after receiving response */
-        gettimeofday(&endTime, NULL);
-        
-        /* Save data */
-        dataReceived += read;
-        requestTime += (endTime.tv_sec * 1000000 + endTime.tv_usec) -
-        (startTime.tv_sec * 1000000 + startTime.tv_usec);
-        
-        /* Increment count and check to see if we are done */
-        if (++count >= data->maxRequests)
-        {
-            break;
-        }
-        
-        /* Wait the specified amount of time between requests */
-        if (data->pause != 0)
-        {
-            sleep(data->pause);
+            /* Receive data from the server */
+            if ((read = readData(&socket, buffer, data->request)) == -1)
+            {
+                break;
+            }
+            
+            /* Get time after receiving response */
+            gettimeofday(&endTime, NULL);
+            
+            /* Save data */
+            dataReceived += read;
+            requestTime += (endTime.tv_sec * 1000000 + endTime.tv_usec) -
+            (startTime.tv_sec * 1000000 + startTime.tv_usec);
+            
+            /* Increment count and check to see if we are done */
+            if (++count >= data->maxRequests)
+            {
+                break;
+            }
+            
+            /* Wait the specified amount of time between requests */
+            if (data->pause != 0)
+            {
+                sleep(data->pause);
+            }
         }
     }
-    
     /* Clean up */
     if (closeSocket(&socket) == -1)
     {

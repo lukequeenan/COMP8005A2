@@ -90,7 +90,6 @@ int main(int argc, char **argv)
 
 void server(int port, int comm)
 {
-    register int ready = 0;
     int listenSocket = 0;
     int client = 0;
     int maxFileDescriptor = 0;
@@ -106,41 +105,19 @@ void server(int port, int comm)
     FD_ZERO(&clients);
     FD_ZERO(&activeClients);
     FD_SET(listenSocket, &clients);
-    maxFileDescriptor = listenSocket;
     
     displayClientData(connections);
     
     while (1)
     {
         activeClients = clients;
-        if ((ready = select(maxFileDescriptor + 1, &activeClients,
-                    NULL, NULL, NULL)) == -1)
+        if (select(FD_SETSIZE, &activeClients, NULL, NULL, NULL) == -1)
         {
-            systemFatal("Error with pselect");
+            systemFatal("Error with select");
         }
         
-        /* First check for a new client connection */
-        if (FD_ISSET(listenSocket, &activeClients))
-        {
-            /* Accept the new connection */
-            if ((client = acceptConnection(&listenSocket)) != -1)
-            {
-                FD_SET(client, &clients);
-                connections++;
-                displayClientData(connections);
-                if (client > maxFileDescriptor)
-                {
-                    maxFileDescriptor = client;
-                }
-            }
-            if (--ready <= 0)
-            {
-                continue;
-            }
-        }
-        
-        /* Now process any requests made by the other connected clients */
-        for (index = 0; index <= maxFileDescriptor; index++)
+        /* Process all the sockets */
+        for (index = 0; index < FD_SETSIZE; index++)
         {
             if (FD_ISSET(index, &activeClients))
             {
@@ -148,15 +125,25 @@ void server(int port, int comm)
                 {
                     if (processConnection(index, comm) == 0)
                     {
-                        FD_CLR(index, &clients);
                         close(index);
+                        FD_CLR(index, &clients);
                         connections--;
                         displayClientData(connections);
                     }
                 }
-                if (--ready <= 0)
+                else
                 {
-                    break;
+                    /* Accept the new connections */
+                    while ((client = acceptConnection(&listenSocket)) != -1)
+                    {
+                        FD_SET(client, &clients);
+                        connections++;
+                        displayClientData(connections);
+                        if (client > maxFileDescriptor)
+                        {
+                            maxFileDescriptor = client;
+                        }
+                    }
                 }
             }
         }
@@ -173,7 +160,6 @@ int processConnection(int socket, int comm)
     
     /* Ready the memory for sending to the client */
     memset(result, 'L', NETWORK_BUFFER_SIZE);
-    //memset(line, '\0', NETWORK_BUFFER_SIZE);
     
     /* Read the request from the client */
     if (readLine(&socket, line, NETWORK_BUFFER_SIZE) <= 0)
@@ -242,6 +228,11 @@ void initializeServer(int *listenSocket, int *port)
     if (bindAddress(port, listenSocket) == -1)
     {
         systemFatal("Cannot Bind Address To Socket");
+    }
+    
+    if (makeSocketNonBlocking(listenSocket) == -1)
+    {
+        systemFatal("Cannot Make Socket Non-Blocking");
     }
     
     // Set the socket to listen for connections
