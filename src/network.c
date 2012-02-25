@@ -410,21 +410,56 @@ int closeSocket(int *socket)
  -- NOTES:
  -- This is the wrapper function for connecting to a server.
  */
-int connectToServer(int *port, int *socket, const char *ip)
+int connectToServer(const char *port, int *sock, const char *ip)
 {
+    struct addrinfo hints;
+    struct addrinfo *result;
+    struct addrinfo *rp;
+    
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if (getaddrinfo(ip, port, &hints, &result) != 0)
+    {
+        return -1;
+    }
+        
+    for (rp = result; rp != NULL; rp = rp->ai_next)
+    {
+        *sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        
+        if (*sock == -1)
+            continue;
+        
+        if (connect(*sock, rp->ai_addr, rp->ai_addrlen) != -1)
+            break;
+            
+        close(*sock);
+    }
+    
+    if (rp == NULL)
+    {
+        return -1;
+    }
+    
+    freeaddrinfo(result);
+    
+    return *sock;
+/*
     struct sockaddr_in address;
     struct hostent *hp;
     
-    bzero((char *)&address, sizeof(struct sockaddr_in));
+    memset(&address, '\0', sizeof(struct sockaddr_in));
     address.sin_family = AF_INET;
     address.sin_port = htons(*port);
     if ((hp = gethostbyname(&(*ip))) == NULL)
     {
         return -1;
     }
-    bcopy(hp->h_addr, (char *)&address.sin_addr, hp->h_length);
+    memcpy(&address.sin_addr, hp->h_addr, hp->h_length);
     
-    return connect(*socket, (struct sockaddr *)&address, sizeof(address));
+    return connect(*socket, (struct sockaddr *)&address, sizeof(address));*/
 }
 
 /*

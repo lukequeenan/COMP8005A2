@@ -21,7 +21,7 @@ extern "C" {
     int sendData(int *socket, const char *buffer, int bytesToSend);
     int readLine(int *socket, char *buffer, int maxBytesToRead);
     int closeSocket(int *socket);
-    int connectToServer(int *port, int *socket, const char *ip);
+    int connectToServer(const char *port, int *socket, const char *ip);
     int makeSocketNonBlocking(int *socket);
 #ifdef __cplusplus
 }

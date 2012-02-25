@@ -51,7 +51,7 @@ typedef struct
 {
     char ip[16];
     int request;
-    int port;
+    char port[8];
     int comm;
     int clients;
     unsigned int pause;
@@ -72,15 +72,16 @@ int main(int argc, char **argv)
     /* Create variables and assign default data */
     int option = 0;
     int comms[2];
-    int threads = 8;
-    threadData data = {"192.168.0.175", 1024, DEFAULT_PORT, 0, 10, 0, 100};
+    int threads = 100;
+    /* POSITIONS ------------IP--------BYTES---PORT-COMM-#C--P--REQUESTS---*/
+    threadData data = {"192.168.0.175", 1024, "8989", 0, 100, 0, 100};
     
     /* Get all the arguments */
     while ((option = getopt(argc, argv, "p:i:r:m:w:n:t:")) != -1)
     {
         switch (option) {
             case 'p':
-                data.port = atoi(optarg);
+                snprintf(data.port, sizeof(data.port), "%s", optarg);
                 break;
             case 'i':
                 snprintf(data.ip, sizeof(data.ip), "%s", optarg);
@@ -218,7 +219,7 @@ void *client(void *information)
         }
         
         /* Connect to the server */
-        result = connectToServer(&data->port, &sockets[index], data->ip);
+        result = connectToServer(data->port, &sockets[index], data->ip);
     }
     
     /* Connect to the server */
@@ -279,8 +280,9 @@ void *client(void *information)
     }
     
     /* Create and format data for output */
-    snprintf(request, sizeof(request), "Requests: %llu, Request Time: %llu, "
-             "Data Received: %llu\n", count, requestTime, dataReceived);
+    snprintf(request, sizeof(request), "Clients: %d, Requests Each: %llu, "
+    "Total Request Time: %llu, Total Data Received: %llu\n", data->clients,
+    count, requestTime, dataReceived);
     
     /* Send data to comms process */
     if (sendData(&data->comm, request, strlen(request)) == -1)
