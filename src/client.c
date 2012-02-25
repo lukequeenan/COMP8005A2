@@ -213,6 +213,7 @@ void *client(void *information)
         /* Enter a loop and communicate with the server */
         while (1)
         {
+            count++;
             /* Get time before sending data */
             gettimeofday(&startTime, NULL);
             
@@ -237,7 +238,7 @@ void *client(void *information)
             (startTime.tv_sec * 1000000 + startTime.tv_usec);
             
             /* Increment count and check to see if we are done */
-            if (++count >= data->maxRequests)
+            if (count >= data->maxRequests)
             {
                 break;
             }

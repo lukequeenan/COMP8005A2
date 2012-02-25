@@ -41,7 +41,7 @@
 /* User includes */
 #include "network.h"
 
-#define MAX_EVENTS 1024
+#define MAX_EVENTS 10000
 
 int main(int argc, char **argv);
 void server(int port, int comm);
@@ -138,11 +138,11 @@ void server(int port, int comm)
             {
                 /* Accept the new connections */
                 while ((client = acceptConnection(&listenSocket)) != -1)
-                {/*
+                {
                     if (makeSocketNonBlocking(&client) == -1)
                     {
                         systemFatal("Cannot make client socket non-blocking");
-                    }*/
+                    }
                     event.events = EPOLLIN | EPOLLET;
                     event.data.fd = client;
                     if (epoll_ctl(epoll, EPOLL_CTL_ADD, client, &event) == -1)
