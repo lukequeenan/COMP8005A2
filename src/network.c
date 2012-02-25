@@ -255,8 +255,19 @@ int acceptConnectionIpPort(int *listenSocket, char *ip, unsigned short *port)
  -- has sent the SAME number of bytes, or this function will block.
  */
 int readData(int *socket, char *buffer, int bytesToRead)
-{    
-    return recv(*socket, buffer, bytesToRead, MSG_WAITALL);
+{
+    int read = 0;
+    int bytesLeft = bytesToRead;
+    
+    while (read < bytesToRead)
+    {
+        read += recv(*socket, buffer + read, bytesLeft, 0);
+        bytesLeft = bytesToRead - read;
+    }
+    
+    return read;
+    
+    //return recv(*socket, buffer, bytesToRead, MSG_WAITALL);
 }
 
 /*
@@ -280,7 +291,17 @@ int readData(int *socket, char *buffer, int bytesToRead)
  */
 int sendData(int *socket, const char *buffer, int bytesToSend)
 {
-    return send(*socket, buffer, bytesToSend, 0);
+    int sent = 0;
+    int bytesLeft = bytesToSend;
+    
+    while (sent < bytesToSend)
+    {
+        sent += send(*socket, buffer + sent, bytesLeft, 0);
+        bytesLeft = bytesToSend - sent;
+    }
+    
+    return sent;
+    //return send(*socket, buffer, bytesToSend, 0);
 }
 
 /*
