@@ -244,11 +244,7 @@ void initializeServer(int *listenSocket, int *port)
 
 void displayClientData(unsigned long long clients)
 {
-    if (system("clear") == -1)
-    {
-        systemFatal("Clear screen failed");
-    }
-    printf("\n\nConnected clients: %llu\n", clients);
+    printf("Connected clients: %llu\n", clients);
 }
 
 /*
