@@ -135,6 +135,7 @@ int main(int argc, char **argv)
 
 void createClients(threadData clientData, int threads)
 {
+    /* Create local variables and assign default values */
     int count = 0;
     threadData data[threads];
     pthread_t thread = 0;
@@ -157,11 +158,13 @@ void createClients(threadData clientData, int threads)
         systemFatal("Unable to set thread to system scope");
     }
     
+    /* Create individual client data */
     for (count = 0; count < threads; count++)
     {
         memcpy(&data[count], &clientData, sizeof(threadData));
     }
     
+    /* Create each thread */
     for (count = 0; count < threads; count++)
     {
         if (pthread_create(&thread, &attr, client, (void *) &data[count]) != 0)
@@ -169,7 +172,8 @@ void createClients(threadData clientData, int threads)
             systemFatal("Unable to make thread");
         }
     }
-    
+ 
+    /* Destroy thread attributes */
     pthread_attr_destroy(&attr);
     
     /* Wait for a signal from the data processing process */
@@ -178,6 +182,7 @@ void createClients(threadData clientData, int threads)
 
 void *client(void *information)
 {
+    /* Create local variables and assign defualt values */
     int read = 0;
     int result = 0;
     int *sockets = 0;
