@@ -72,9 +72,9 @@ int main(int argc, char **argv)
     /* Create variables and assign default data */
     int option = 0;
     int comms[2];
-    int threads = 100;
+    int threads = 10;
     /* POSITIONS ------------IP--------BYTES---PORT-COMM-#C--P--REQUESTS---*/
-    threadData data = {"192.168.0.175", 1024, "8989", 0, 100, 0, 100};
+    threadData data = {"192.168.0.175", 1024, "8989", 0, 10, 1, 100};
     
     /* Get all the arguments */
     while ((option = getopt(argc, argv, "p:i:r:m:w:n:t:")) != -1)
@@ -205,21 +205,15 @@ void *client(void *information)
     snprintf(request, sizeof(request), "%d\n", data->request);
     
     for (index = 0; index < data->clients; index++)
-    {
-        /* Create the socket */
-        if ((sockets[index] = tcpSocket()) == -1)
-        {
-            systemFatal("Could not create socket");
-        }
+    {      
+        /* Create a socket and connect to the server */
+        result = connectToServer(data->port, &sockets[index], data->ip);
         
         /* Set the socket to reuse for improper shutdowns */
-        if (setReuse(&sockets[index]) == -1)
+        if ((result == -1) || (setReuse(&sockets[index]) == -1))
         {
-            systemFatal("Could not set reuse");
+            break;
         }
-        
-        /* Connect to the server */
-        result = connectToServer(data->port, &sockets[index], data->ip);
     }
     
     /* Connect to the server */
@@ -273,10 +267,7 @@ void *client(void *information)
     /* Clean up */
     for (index = 0; index < data->clients; index++)
     {
-        if (closeSocket(&sockets[index]) == -1)
-        {
-            systemFatal("Unable to close socket");
-        }
+        closeSocket(&sockets[index]);
     }
     
     /* Create and format data for output */
