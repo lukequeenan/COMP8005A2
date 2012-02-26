@@ -221,7 +221,7 @@ void *client(void *information)
         }
     }
     
-    /* Connect to the server */
+    /* Ensure that we connected to the server */
     if (result != -1)
     {
         /* Enter a loop and communicate with the server */
