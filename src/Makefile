@@ -24,7 +24,7 @@ selectServer: network.o selectServer.o
 	$(CC) $(CFLAGS) network.o selectServer.o -o $(SELECT_SERVER)
 	
 epollServer: network.o epollServer.o
-	$(CC) $(CFLAGS) network.o epollServer.o -o $(EPOLL_SERVER)
+	$(CC) $(CFLAGS) $(TFLAG) network.o epollServer.o -o $(EPOLL_SERVER)
 
 network.o: network.c network.h
 	$(CC) $(CFLAGS) -O -c network.c

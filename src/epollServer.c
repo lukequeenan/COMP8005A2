@@ -38,15 +38,19 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
+#include <pthread.h>
+
 /* User includes */
 #include "network.h"
 
 #define MAX_EVENTS 10000
+#define THREADS 64
 
 int main(int argc, char **argv);
 void server(int port, int comm);
-int processConnection(int socket, int comm);
+void *processConnection();
 void initializeServer(int *listenSocket, int *port);
+void createThreadPool(int threadsToMake);
 void displayClientData(unsigned long long clients);
 static void systemFatal(const char *message);
 
@@ -56,23 +60,34 @@ typedef struct
     int commSocket;
 } clientData;
 
+static int threadSocket = 0;
+pthread_mutex_t clientMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t clientCondition = PTHREAD_COND_INITIALIZER;
+pthread_cond_t epollLoop = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t acceptMutex = PTHREAD_MUTEX_INITIALIZER;
+
+
 int main(int argc, char **argv)
 {
     /* Initialize port and give default option in case of no user input */
     int port = DEFAULT_PORT;
+    int threads = THREADS;
     int option = 0;
     int comms[2];
     
     /* Parse command line parameters using getopt */
-    while ((option = getopt(argc, argv, "p:")) != -1)
+    while ((option = getopt(argc, argv, "p:t:")) != -1)
     {
         switch (option)
         {
             case 'p':
                 port = atoi(optarg);
                 break;
+            case 't':
+                threads = atoi(optarg);
+                break;
             default:
-                fprintf(stderr, "Usage: %s -p [port]\n", argv[0]);
+                fprintf(stderr, "Usage: %s -p [port] -t [threads]\n", argv[0]);
                 return 0;
         }
     }
@@ -84,6 +99,9 @@ int main(int argc, char **argv)
     }
     
     /* Need to fork and create process to collect data */
+    
+    /* Create thread pool */
+    createThreadPool(threads);
     
     /* Start server */
     server(port, comms[1]);
@@ -155,12 +173,16 @@ void server(int port, int comm)
             }
             else
             {
-                if (processConnection(events[index].data.fd, comm) == 0)
+                pthread_mutex_lock(&clientMutex);
+                if (threadSocket != 0)
                 {
-                    close(events[index].data.fd);
-                    connections--;
-                    displayClientData(connections);
+                    pthread_cond_wait(&epollLoop, &clientMutex);
                 }
+                threadSocket = events[index].data.fd;
+                pthread_cond_signal(&clientCondition);
+                pthread_mutex_unlock(&clientMutex);
+                
+                displayClientData(connections++);
             }
         }
     }
@@ -169,40 +191,99 @@ void server(int port, int comm)
     close(epoll);
 }
 
-int processConnection(int socket, int comm)
+void *processConnection()
 {
-    int bytesToWrite = 0;
+    int socket = 0;
+    register int bytesToWrite = 0;
     char line[NETWORK_BUFFER_SIZE];
     char result[NETWORK_BUFFER_SIZE];
     
     /* Ready the memory for sending to the client */
     memset(result, 'L', NETWORK_BUFFER_SIZE);
     
-    /* Read the request from the client */
-    if (readLine(&socket, line, NETWORK_BUFFER_SIZE) <= 0)
+    while (1)
     {
-        return 0;
-    }
-    
-    /* Get the number of bytes to reply with */
-    bytesToWrite = atol(line);
-    
-    /* Ensure that the bytes requested are within our buffers */
-    if ((bytesToWrite <= 0) || (bytesToWrite > NETWORK_BUFFER_SIZE))
-    {
-        systemFatal("Client requested too large a file");
-    }
+        /* Wait on the client mutex */ 
+        pthread_mutex_lock(&clientMutex);
+        
+        /* If there are no clients to process, wait until there are */
+        if (threadSocket == 0)
+        {
+            pthread_cond_wait(&clientCondition, &clientMutex);
+        }
+        
+        /* Copy the socket to a local variable and set global to 0 */
+        socket = threadSocket;
+        threadSocket = 0;
+        pthread_cond_signal(&epollLoop);
+        
+        /* Release the mutex, and process the client */
+        pthread_mutex_unlock(&clientMutex);
+        
+        /* Read the request from the client */
+        if (readLine(&socket, line, NETWORK_BUFFER_SIZE) <= 0)
+        {
+            close(socket);
+            continue;
+        }
+        
+        /* Get the number of bytes to reply with */
+        bytesToWrite = atol(line);
+        
+        /* Ensure that the bytes requested are within our buffers */
+        if ((bytesToWrite <= 0) || (bytesToWrite > NETWORK_BUFFER_SIZE))
+        {
+            close(socket);
+            continue;
+        }
 
-    /* Send the data back to the client */
-    if (sendData(&socket, result, bytesToWrite) == -1)
-    {
-        systemFatal("Send fail");
+        /* Send the data back to the client */
+        if (sendData(&socket, result, bytesToWrite) == -1)
+        {
+            close(socket);
+            continue;
+        }
     }
+    
+    pthread_exit(NULL);
+}
 
-    /* Send the communication time to the data collection process */
+void createThreadPool(int threadsToMake)
+{
+    int count = 0;
+    pthread_t thread = 0;
+    pthread_attr_t attr;
     
+    threadSocket = 0;
     
-    return 1;
+    /* Create the reusable thread attributes */
+    pthread_attr_init(&attr);
+    
+    /* Set the thread to non joinable (detached) */
+    if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) != 0)
+    {
+        systemFatal("Unable to set thread attributes to detached");
+    }
+    
+    /* Set the thread for kernel management. This means that system calls will
+     not block all threads in the process and that individual threads can be
+     assigned to indiviudal processors in the system. */
+    if (pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM) != 0)
+    {
+        systemFatal("Unable to set thread to system scope");
+    }
+    
+    /* Create the threads */
+    for (count = 0; count < threadsToMake; count++)
+    {
+        if (pthread_create(&thread, &attr, processConnection, NULL) != 0)
+        {
+            systemFatal("Unable to make thread in thread pool");
+        }
+    }
+    
+    /* Destroy thread attributes */
+    pthread_attr_destroy(&attr);
 }
 
 /*
