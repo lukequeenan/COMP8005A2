@@ -91,9 +91,8 @@ int main(int argc, char **argv)
 void server(int port, int comm)
 {
     int listenSocket = 0;
-    int client = 0;
-    int maxFileDescriptor = 0;
-    int index = 0;
+    register int client = 0;
+    register int index = 0;
     fd_set clients;
     fd_set activeClients;
     unsigned long long connections = 0;
@@ -139,10 +138,6 @@ void server(int port, int comm)
                         FD_SET(client, &clients);
                         connections++;
                         displayClientData(connections);
-                        if (client > maxFileDescriptor)
-                        {
-                            maxFileDescriptor = client;
-                        }
                     }
                 }
             }
