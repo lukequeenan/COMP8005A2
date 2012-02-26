@@ -44,6 +44,7 @@ int main(int argc, char **argv);
 void server(int port);
 void *processConnection(void *data);
 void initializeServer(int *listenSocket, int *port);
+void displayClientData(unsigned long long clients);
 static void systemFatal(const char *message);
 
 typedef struct
@@ -133,8 +134,8 @@ void server(int port)
             systemFatal("Unable to make thread to handle client");
         }
         
-        /* Increment our count of connected clients */
-        connectedClients++;
+        /* Increment our count of connected clients and display it */
+        displayClientData(connectedClients++);
     }
     
 }
@@ -224,6 +225,11 @@ void initializeServer(int *listenSocket, int *port)
     {
         systemFatal("Cannot Listen On Socket");
     }
+}
+
+void displayClientData(unsigned long long clients)
+{
+    printf("Connected clients: %llu\n", clients);
 }
 
 /*
