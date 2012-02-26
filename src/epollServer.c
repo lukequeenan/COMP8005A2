@@ -39,6 +39,7 @@
 #include <unistd.h>
 
 #include <pthread.h>
+#include <semaphore.h>
 
 /* User includes */
 #include "network.h"
@@ -50,7 +51,7 @@ int main(int argc, char **argv);
 void server(int port, int comm);
 void *processConnection();
 void initializeServer(int *listenSocket, int *port);
-void createThreadPool(int threadsToMake);
+void createThreadPool();
 void displayClientData(unsigned long long clients);
 static void systemFatal(const char *message);
 
@@ -61,17 +62,17 @@ typedef struct
 } clientData;
 
 static int threadSocket = 0;
+static int threads = THREADS;
 pthread_mutex_t clientMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t clientCondition = PTHREAD_COND_INITIALIZER;
 pthread_cond_t epollLoop = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t acceptMutex = PTHREAD_MUTEX_INITIALIZER;
-
+sem_t availableThreads;
 
 int main(int argc, char **argv)
 {
     /* Initialize port and give default option in case of no user input */
     int port = DEFAULT_PORT;
-    int threads = THREADS;
     int option = 0;
     int comms[2];
     
@@ -101,7 +102,7 @@ int main(int argc, char **argv)
     /* Need to fork and create process to collect data */
     
     /* Create thread pool */
-    createThreadPool(threads);
+    createThreadPool();
     
     /* Start server */
     server(port, comms[1]);
@@ -116,6 +117,7 @@ void server(int port, int comm)
     register int index = 0;
     int listenSocket = 0;
     int client = 0;
+    int result = 0;
     
     struct epoll_event event;
     struct epoll_event events[MAX_EVENTS];
@@ -173,18 +175,27 @@ void server(int port, int comm)
             }
             else
             {
+                /* Access the critical section */
                 pthread_mutex_lock(&clientMutex);
-                if (threadSocket != 0)
-                {
-                    pthread_cond_wait(&epollLoop, &clientMutex);
-                }
+                /* "Use" one of our threads / decrement the semaphore */
+                sem_wait(&availableThreads);
+                /* Assign the socket to the global */
                 threadSocket = events[index].data.fd;
+                /* Signal the threads */
                 pthread_cond_signal(&clientCondition);
+                /* Leave critical section */
                 pthread_mutex_unlock(&clientMutex);
-                
-                displayClientData(connections++);
             }
         }
+        /* Ensure that all the threads are finished processing before going */
+        pthread_mutex_lock(&clientMutex);
+        sem_getvalue(&availableThreads, &result);
+        while (result != threads)
+        {
+            pthread_cond_wait(&epollLoop, &clientMutex);
+            sem_getvalue(&availableThreads, &result);
+        }
+        pthread_mutex_unlock(&clientMutex);
     }
     
     close(listenSocket);
@@ -215,7 +226,6 @@ void *processConnection()
         /* Copy the socket to a local variable and set global to 0 */
         socket = threadSocket;
         threadSocket = 0;
-        pthread_cond_signal(&epollLoop);
         
         /* Release the mutex, and process the client */
         pthread_mutex_unlock(&clientMutex);
@@ -224,7 +234,7 @@ void *processConnection()
         if (readLine(&socket, line, NETWORK_BUFFER_SIZE) <= 0)
         {
             close(socket);
-            continue;
+            goto done;
         }
         
         /* Get the number of bytes to reply with */
@@ -234,27 +244,37 @@ void *processConnection()
         if ((bytesToWrite <= 0) || (bytesToWrite > NETWORK_BUFFER_SIZE))
         {
             close(socket);
-            continue;
+            goto done;
         }
 
         /* Send the data back to the client */
         if (sendData(&socket, result, bytesToWrite) == -1)
         {
             close(socket);
-            continue;
+            goto done;
         }
+        
+done:        
+        /* We are done here, release the semaphore */
+        
+        /* Signal the event loop so that it can continue if waiting */
+        pthread_mutex_lock(&clientMutex);
+        sem_post(&availableThreads);
+        pthread_cond_signal(&epollLoop);
+        pthread_mutex_unlock(&clientMutex);
     }
     
     pthread_exit(NULL);
 }
 
-void createThreadPool(int threadsToMake)
+void createThreadPool()
 {
     int count = 0;
     pthread_t thread = 0;
     pthread_attr_t attr;
     
     threadSocket = 0;
+    sem_init(&availableThreads, 0, threads);
     
     /* Create the reusable thread attributes */
     pthread_attr_init(&attr);
@@ -274,7 +294,7 @@ void createThreadPool(int threadsToMake)
     }
     
     /* Create the threads */
-    for (count = 0; count < threadsToMake; count++)
+    for (count = 0; count < threads; count++)
     {
         if (pthread_create(&thread, &attr, processConnection, NULL) != 0)
         {
