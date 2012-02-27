@@ -9,7 +9,11 @@ BUILDDIR=/bin
 VPATH=src
 SRC=/src
 
-project:
+project: network.o client.o threadServer.o selectServer.o epollServer.o
+	$(CC) $(CFLAGS) $(TFLAG) network.o client.o -o $(CLIENT)
+	$(CC) $(CFLAGS) $(TFLAG) network.o threadServer.o -o $(THREAD_SERVER)
+	$(CC) $(CFLAGS) network.o selectServer.o -o $(SELECT_SERVER)
+	$(CC) $(CFLAGS) network.o epollServer.o -o $(EPOLL_SERVER)
 
 clean:
 	rm -f *.o *.bak *.out ex

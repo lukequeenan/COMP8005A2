@@ -1,9 +1,15 @@
 /*-----------------------------------------------------------------------------
  --	SOURCE FILE:    client.c - A simple TCP client and data collection program
  --
- --	PROGRAM:		NEED NAME
+ --	PROGRAM:		Web Client Emulator
  --
- --	FUNCTIONS:		Berkeley Socket API
+ --	FUNCTIONS:		
+ --                 void *client(void* information);
+ --                 void dataCollector(int socket, int clients);
+ --                 void createClients(threadData data, int threads);
+ --                 void stopClients();
+ --                 void stopCollecting();
+ --                 static void systemFatal(const char* message);
  --
  --	DATE:			February 8, 2012
  --
@@ -66,7 +72,24 @@ void stopClients();
 void stopCollecting();
 static void systemFatal(const char* message);
 
-/* Main entry point */
+/*
+ -- FUNCTION: main
+ --
+ -- DATE: Feb 20, 2011
+ --
+ -- REVISIONS: (Date and Description)
+ --
+ -- DESIGNER: Luke Queenan
+ --
+ -- PROGRAMMER: Luke Queenan
+ --
+ -- INTERFACE: int main(argc, char **argv)
+ --
+ -- RETURNS: 0 on success
+ --
+ -- NOTES:
+ -- This is the main entry point for the client program
+ */
 int main(int argc, char **argv)
 {
     /* Create variables and assign default data */
@@ -133,6 +156,25 @@ int main(int argc, char **argv)
     
 }
 
+/*
+ -- FUNCTION: createClients
+ --
+ -- DATE: Feb 20, 2011
+ --
+ -- REVISIONS: (Date and Description)
+ --
+ -- DESIGNER: Luke Queenan
+ --
+ -- PROGRAMMER: Luke Queenan
+ --
+ -- INTERFACE: int createClients(threadData, int)
+ --
+ -- RETURNS: void
+ --
+ -- NOTES:
+ -- This function creates all the client threads and then waits for a signal
+ -- from the data collection process
+ */
 void createClients(threadData clientData, int threads)
 {
     /* Create local variables and assign default values */
@@ -180,6 +222,26 @@ void createClients(threadData clientData, int threads)
     wait(&count);
 }
 
+/*
+ -- FUNCTION: client
+ --
+ -- DATE: Feb 20, 2011
+ --
+ -- REVISIONS: (Date and Description)
+ --
+ -- DESIGNER: Luke Queenan
+ --
+ -- PROGRAMMER: Luke Queenan
+ --
+ -- INTERFACE: int *client(void*)
+ --
+ -- RETURNS: void
+ --
+ -- NOTES:
+ -- The client thread, loops through the created sockets and sends and receives
+ -- data. Once the total number of requests is met, the data is sent to the data
+ -- processing function. The thread exits.
+ */
 void *client(void *information)
 {
     /* Create local variables and assign defualt values */
@@ -291,6 +353,25 @@ void *client(void *information)
     pthread_exit(NULL);
 }
 
+/*
+ -- FUNCTION: dataCollector
+ --
+ -- DATE: Feb 20, 2011
+ --
+ -- REVISIONS: (Date and Description)
+ --
+ -- DESIGNER: Luke Queenan
+ --
+ -- PROGRAMMER: Luke Queenan
+ --
+ -- INTERFACE: void dataCollector(int, int)
+ --
+ -- RETURNS: 0 on success
+ --
+ -- NOTES:
+ -- The function blocks on a read from the local socket and processes the data
+ -- when it is received. Once all the clients are completed, it exits.
+ */
 void dataCollector(int socket, int clients)
 {
     char *buffer;

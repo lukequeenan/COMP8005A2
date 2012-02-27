@@ -1,9 +1,15 @@
 /*-----------------------------------------------------------------------------
- --	SOURCE FILE:    client.c - A simple TCP client and data collection program
+ --	SOURCE FILE:    threadServer.c - A simple thread server
  --
  --	PROGRAM:		NEED NAME
  --
- --	FUNCTIONS:		Berkeley Socket API
+ --	FUNCTIONS:		
+ --                 int main(int argc, char **argv);
+ --                 void server(int port);
+ --                 void *processConnection(void *data);
+ --                 void initializeServer(int *listenSocket, int *port);
+ --                 void displayClientData(unsigned long long clients);
+ --                 static void systemFatal(const char *message);
  --
  --	DATE:			February 8, 2012
  --
@@ -14,19 +20,7 @@
  --	PROGRAMMERS:	Luke Queenan
  --
  --	NOTES:
- -- A simple client emulation program for testing servers. The program
- -- implements the following features:
- --     1. Ability to send variable length text strings to the server
- --     2. Number of times to send these strings is user definable
- --     3. Have the client maintain the connection for varying time durations
- --     4. Keep track of how many requests it made to the server, amount of
- --        data sent to the server, amount of time it took for the server to
- --        respond
- --
- -- This program will also allow the user to specify the number of above
- -- clients to spawn via threads. A process is also created that will collect
- -- any statistical data and save it to a file. This is done using UNIX domain
- -- sockets.
+ -- A simple thread server
  ----------------------------------------------------------------------------*/
 
 /* System includes */
@@ -53,6 +47,24 @@ typedef struct
     int commSocket;
 } clientData;
 
+/*
+ -- FUNCTION: main
+ --
+ -- DATE: Feb 20, 2011
+ --
+ -- REVISIONS: (Date and Description)
+ --
+ -- DESIGNER: Luke Queenan
+ --
+ -- PROGRAMMER: Luke Queenan
+ --
+ -- INTERFACE: int main(argc, char **argv)
+ --
+ -- RETURNS: 0 on success
+ --
+ -- NOTES:
+ -- This is the main entry point for the thread server
+ */
 int main(int argc, char **argv)
 {
     // Initialize port and give default option in case of no user input
@@ -79,6 +91,26 @@ int main(int argc, char **argv)
     return 0;
 }
 
+/*
+ -- FUNCTION: server
+ --
+ -- DATE: Feb 20, 2011
+ --
+ -- REVISIONS: (Date and Description)
+ --
+ -- DESIGNER: Luke Queenan
+ --
+ -- PROGRAMMER: Luke Queenan
+ --
+ -- INTERFACE: void server(int)
+ --
+ -- RETURNS: void
+ --
+ -- NOTES:
+ -- This function contains the server loop for the thread server. It blocks
+ -- on accept, and when a connection is detected, a new thread is spawned to
+ -- handle the client.
+ */
 void server(int port)
 {
     int listenSocket = 0;
@@ -140,6 +172,25 @@ void server(int port)
     
 }
 
+/*
+ -- FUNCTION: processConnection
+ --
+ -- DATE: Feb 20, 2011
+ --
+ -- REVISIONS: (Date and Description)
+ --
+ -- DESIGNER: Luke Queenan
+ --
+ -- PROGRAMMER: Luke Queenan
+ --
+ -- INTERFACE: int processConnection(int, int)
+ --
+ -- RETURNS: 1 on success
+ --
+ -- NOTES:
+ -- Service a client socket by reading a request and sending the data to the
+ -- client continueously in a loop until the client closes the connection.
+ */
 void *processConnection(void *data)
 {
     int comm = (int) (long) data;
